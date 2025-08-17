@@ -8,8 +8,8 @@ class KNeighborsClassifier():
         self.p = p
 
     def fit(self, X, y):
-        self.X_train = X
-        self.y_train = y
+        self.X_train = np.asarray(X)
+        self.y_train = np.asarray(y)
 
     def predict(self, X):
         results = np.empty(X.shape[0])
