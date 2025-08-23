@@ -48,6 +48,7 @@ class SoftmaxRegression:
                 print(f"Iter {iter}==> Loss = {loss}")
 
     def _get_gradients(self, preds):
+        # Cross entropy gradient
         error = preds - self.y_train
         dw = (1 / self.X_train.shape[0]) * np.dot(self.X_train.T, error)
         if self.penalty == "l2":
@@ -56,6 +57,7 @@ class SoftmaxRegression:
         return dw, db
 
     def _update_params(self, dw, db):
+        # gradient descent
         self.weights -= self.learning_rate * dw
         self.bias -= self.learning_rate * db
 
@@ -65,11 +67,13 @@ class SoftmaxRegression:
         return np.argmax(self._softmax(Z), axis=1)
 
     def _softmax(self, Z):
-        # Z = X @ W (feature * weights)
+        # Z = X @ W (feature * weights) + bias
+        # stablized to not overflow after the exponential
         Z_stable = Z - np.max(Z, axis=1, keepdims=True)
         return np.exp(Z_stable) / np.sum(np.exp(Z_stable), axis=1, keepdims=True)
 
     def _cross_entropy(self, X, Y, W, bias):
+        # log stabilized with epsilon
         epsilon = 1e-9
         Z = X @ W + bias
         n = Y.shape[0]
