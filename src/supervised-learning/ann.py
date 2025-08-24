@@ -1,5 +1,9 @@
 import numpy as np
 import math
+from sklearn.preprocessing import PowerTransformer
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn import datasets
 
 
 class Tensor:
@@ -10,6 +14,44 @@ class Tensor:
 
     def dim(self):
         return self.data.shape
+
+
+class loss:
+    def get_loss(self, input, target):
+        raise NotImplementedError
+
+    def get_gradient(self, input, target):
+        raise NotImplementedError
+
+
+class cross_entropy(loss):
+    """
+    Accepts input in the form of probablities
+    """
+
+    def get_loss(self, input, target):
+        N = input.shape[0]
+        correct_logprobs = -np.log(input[range(N), target] + 1e-9)
+        return np.mean(correct_logprobs)
+
+    def get_gradient(self, input, target):
+        N = input.shape[0]
+        grad = input.copy()
+        grad[range(N), target] -= 1
+        grad /= N
+        return grad
+
+
+class MSE(loss):
+    """
+    Accepts input in the form of probablities
+    """
+
+    def get_loss(self, input, target):
+        return np.mean((input - target) ** 2)
+
+    def get_gradient(self, input, target):
+        return 2 * (input - target) / input.shape[0]
 
 
 class init:
@@ -55,18 +97,49 @@ class init:
 
 
 class Layer:
-    def forward(self, x):
+    def forward(self, x: Tensor):
         raise NotImplementedError
 
     def backward(self, grad, lr):
         raise NotImplementedError
 
 
+class Relu(Layer):
+    def forward(self, x):
+        self.mask = (x.data > 0).astype(float)
+        return Tensor(x.data * self.mask, requires_grad=x.requires_grad)
+
+    def backward(self, grad, lr):
+        return grad * self.mask
+
+
+class Sigmoid(Layer):
+    def forward(self, x):
+        self.out = 1 / (1 + np.exp(-x.data))
+        return Tensor(self.out, requires_grad=x.requires_grad)
+
+    def backward(self, grad, lr):
+        return grad * self.out * (1 - self.out)
+
+
+class Softmax(Layer):
+    def forward(self, x):
+        Z_stable = x.data - np.max(x.data, axis=1, keepdims=True)
+        z_softmax = np.exp(Z_stable) / np.sum(np.exp(Z_stable), axis=1, keepdims=True)
+        self.out = z_softmax
+        return Tensor(z_softmax, requires_grad=x.requires_grad)
+
+    def backward(self, grad, lr):
+        dot = np.sum(grad * self.out, axis=1, keepdims=True)
+        grad_input = self.out * (grad - dot)
+        return grad_input
+
+
 class Linear(Layer):
     def __init__(self, in_features, out_features, bias=True):
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = Tensor(np.empty((in_features, out_features)))
+        self.weight = Tensor(np.empty((out_features, in_features)))
         self.bias = Tensor(np.empty(out_features)) if bias else None
         self._reset_parameters()
 
@@ -75,27 +148,105 @@ class Linear(Layer):
         if self.bias is not None:
             init.kaiming_uniform(tensor=self.bias, fan_mode="fan_out")
 
-    def forward(self, init):
-        pass
+    def forward(self, X: Tensor) -> Tensor:
+        self.X = X
+        y = X.data @ self.weight.data.T
+        if self.bias is not None:
+            y = y + self.bias.data
+        return Tensor(y, requires_grad=X.requires_grad or self.weight.requires_grad)
 
     def backward(self, grad, lr):
-        pass
+        dw = grad.T @ self.X.data
+        db = np.sum(grad, axis=0)
+        dx = grad @ self.weight.data
+        self.weight.data -= lr * dw
+        if self.bias is not None:
+            self.bias.data -= lr * db
+        return dx
 
 
 class Model:
-    def __init__(self):
-        pass
+    """
+    A simple feedforward neural network model for supervised learning.
+    Args:
+        layers (list[Layer]): List of Layer objects representing the network architecture.
+        loss (loss): Loss function object with methods for computing loss and gradients.
+    Methods:
+        forward(X: Tensor) -> Tensor:
+            Performs a forward pass through the network with input tensor X.
+        backward(grad, lr):
+            Performs a backward pass (backpropagation) through the network using the provided gradient and learning rate.
+        fit(X: Tensor, y: Tensor, epochs=1000,batch_size=32, lr=0.01, verbose=100):
+            Trains the model using batch gradient descent for a specified number of epochs.
+            Prints loss every 'verbose' epochs.
+        predict(X: Tensor):
+            Returns the predicted class labels for input tensor X using argmax on the output.
+    """
 
-    def forward(self, X):
-        pass
+    def __init__(self, layers: list[Layer], loss: loss):
+        self.layers = layers
+        self.loss = loss
+
+    def forward(self, X: Tensor) -> Tensor:
+        for layer in self.layers:
+            X = layer.forward(X)
+        return X
 
     def backward(self, grad, lr):
-        # batch gradient descent
-        pass
+        for layer in reversed(self.layers):
+            grad = layer.backward(grad, lr)
 
-    def fit(self, X, y, epochs=1000, lr=0.01):
-        pass
+    def fit(
+        self, X: Tensor, y: Tensor, epochs=1000, batch_size=32, lr=0.01, verbose=100
+    ):
+        n_samples = X.data.shape[0]
+        for epoch in range(epochs):
+            indices = np.arange(n_samples)
+            np.random.shuffle(indices)
+            for start in range(0, n_samples, batch_size):
+                end = start + batch_size
+                batch_idx = indices[start:end]
+                X_batch = Tensor(X.data[batch_idx])
+                y_batch = Tensor(y.data[batch_idx])
+                # forward prop
+                y_pred = self.forward(X_batch)
 
-    def predict(self, X):
+                # backprop
+                grad = self.loss.get_gradient(y_pred.data, y_batch.data)
+                self.backward(grad, lr)
+
+            if (epoch + 1) % verbose == 0:
+                print(
+                    f"Epoch {epoch+1}, Loss: {self.loss.get_loss(y_pred.data,y_batch.data):.4f}"
+                )
+
+    def predict(self, X: Tensor):
         out = self.forward(X)
-        return np.argmax(out, axis=1)
+        return np.argmax(out.data, axis=1)
+
+
+if __name__ == "__main__":
+    iris = datasets.load_iris(as_frame=True)
+
+    # Set feature matrix X and target vector y
+    X = iris.data
+    y = iris.target
+
+    # Split the data into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=5
+    )
+    pt = PowerTransformer(standardize=True)  # Standard Scaling already included
+    X_train_transformed = pt.fit_transform(X_train)
+    X_test_transformed = pt.transform(X_test)
+    model = Model(
+        layers=[Linear(4, 4), Relu(), Linear(4, 3), Softmax()], loss=cross_entropy()
+    )
+    model.fit(Tensor(X_train_transformed), Tensor(y_train), epochs=1000, lr=1)
+    preds = model.predict(Tensor(X_test_transformed))
+
+    print(accuracy_score(y_test, preds))
+    print("actual:")
+    print(np.ravel(y_test))
+    print("preds:")
+    print(preds)
