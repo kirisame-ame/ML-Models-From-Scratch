@@ -44,13 +44,28 @@ class cross_entropy(loss):
 
 class MSE(loss):
     """
-    Accepts input in the form of probablities
+    Works for both classification (with integer labels)
+    and regression (with continuous targets).
     """
 
     def get_loss(self, input, target):
+        # Classification case → one-hot encode
+        if target.ndim == 1 or (target.ndim == 2 and target.shape[1] == 1):
+            one_hot = np.zeros((target.shape[0], input.shape[1]))
+            one_hot[np.arange(target.shape[0]), target.flatten()] = 1
+            target = one_hot
+
+        # Regression case → directly compare
         return np.mean((input - target) ** 2)
 
     def get_gradient(self, input, target):
+        # Classification case → one-hot encode
+        if target.ndim == 1 or (target.ndim == 2 and target.shape[1] == 1):
+            one_hot = np.zeros((target.shape[0], input.shape[1]))
+            one_hot[np.arange(target.shape[0]), target.flatten()] = 1
+            target = one_hot
+
+        # Gradient is the same formula in both cases
         return 2 * (input - target) / input.shape[0]
 
 
@@ -217,7 +232,7 @@ class Model:
 
             if (epoch + 1) % verbose == 0:
                 print(
-                    f"Epoch {epoch+1}, Loss: {self.loss.get_loss(y_pred.data,y_batch.data):.4f}"
+                    f"Epoch {epoch+1}, Loss: {self.loss.get_loss(y_pred.data,y_batch.data):.6f}"
                 )
 
     def predict(self, X: Tensor):
