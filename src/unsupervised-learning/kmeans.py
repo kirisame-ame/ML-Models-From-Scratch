@@ -1,6 +1,5 @@
 import numpy as np
 from sklearn.cluster import KMeans as skMeans
-from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import PowerTransformer
 from sklearn import datasets
 import os
