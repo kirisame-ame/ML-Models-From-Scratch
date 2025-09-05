@@ -30,13 +30,13 @@ class SoftmaxRegression:
     def fit(self, X, y):
         self.X_train = np.asarray(X)
         self.y_train = np.asarray(y)
-        self.n_classes = np.unique(y).shape[0]
+        self.n_classes = np.unique(self.y_train).shape[0]
 
         self.y_train = self._one_hot_encode(self.y_train)
         self._init_params()
         for iter in range(self.max_iter + 1):
             # predict
-            P = self._softmax(X @ self.weights + self.bias)
+            P = self._softmax(self.X_train @ self.weights + self.bias)
             # get gradients
             dw, db = self._get_gradients(P)
             # gradient descent

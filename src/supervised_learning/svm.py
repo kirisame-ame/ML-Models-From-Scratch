@@ -102,6 +102,7 @@ class SVMClassifier:
         self.classifiers = {}
 
     def fit(self, X, y):
+        self.classifiers = {}
         X = np.asarray(X)
         y = np.asarray(y)
         self.unique = np.unique(y)

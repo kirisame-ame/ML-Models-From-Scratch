@@ -18,23 +18,33 @@ class Question:
 
 
 class DecisionNode:
-    def __init__(self, X, y):
+    def __init__(self, X, y, max_depth=None, depth=0):
         self.X = X
         self.y = y
         self.question = None
         self.true_branch = None
         self.false_branch = None
         self.is_leaf = False
+        self.max_depth = max_depth
+        self.depth = depth
 
     def build_tree(self):
+        # Stop if max_depth is reached
+        if self.max_depth is not None and self.depth >= self.max_depth:
+            self.is_leaf = True
+            return
         gain, question = self._find_best_question()
         if gain == 0:
             self.is_leaf = True
             return
         self.question = question
         true_rows, false_rows = self._partition(self.X, question)
-        self.true_branch = DecisionNode(self.X[true_rows], self.y[true_rows])
-        self.false_branch = DecisionNode(self.X[false_rows], self.y[false_rows])
+        self.true_branch = DecisionNode(
+            self.X[true_rows], self.y[true_rows], self.max_depth, self.depth + 1
+        )
+        self.false_branch = DecisionNode(
+            self.X[false_rows], self.y[false_rows], self.max_depth, self.depth + 1
+        )
         self.true_branch.build_tree()
         self.false_branch.build_tree()
 
@@ -93,13 +103,15 @@ class DecisionNode:
 
 
 class DecisionTreeClassifier:
-    def __init__(self):
-        pass
+    def __init__(self, max_depth=None):
+        self.max_depth = max_depth
 
     def fit(self, X, y):
         self.X_train = np.asarray(X)
         self.y_train = np.asarray(y)
-        self.root = DecisionNode(self.X_train, self.y_train)
+        self.root = DecisionNode(
+            self.X_train, self.y_train, max_depth=self.max_depth, depth=0
+        )
         self.root.build_tree()
 
     def predict(self, X):
