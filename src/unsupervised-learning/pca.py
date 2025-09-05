@@ -42,7 +42,7 @@ class PCA:
 
     def transform(self, X):
         X_centered = X - self.mean
-        return np.dot(X_centered, self.components)
+        return np.dot(X_centered, self.components.T)
 
     def inverse_transform(self, X_transformed):
         return np.dot(X_transformed, self.components.T) + self.mean
@@ -61,10 +61,12 @@ if __name__ == "__main__":
     pt = PowerTransformer(standardize=True)
     X_transformed = pt.fit_transform(X)
 
-    pca = PCA()
+    pca = PCA(n_components=2)
     preds = pca.fit_transform(X_transformed)
+    print(preds[:5])
     print(pca.explained_variance_ratio)
 
-    skpca = skPCA()
+    skpca = skPCA(n_components=2)
     skpreds = skpca.fit_transform(X_transformed)
+    print(skpreds[:5])
     print(skpca.explained_variance_ratio_)
