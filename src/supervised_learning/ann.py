@@ -181,10 +181,19 @@ class Linear(Layer):
 
 
 class Conv2D(Layer):
-    def __init__(self, in_channels, out_channels, kernel_size):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        stride_length=(1, 1),
+        use_padding=False,
+    ):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
+        self.stride_length = stride_length  # (stride_y, stride_x)
+        self.use_padding = use_padding
         # weight shape: (out_channels, in_channels, kernel_size, kernel_size)
         self.weight = (
             np.random.randn(out_channels, in_channels, kernel_size, kernel_size) * 0.1
@@ -195,17 +204,28 @@ class Conv2D(Layer):
         # x shape: (batch, in_channels, height, width)
         batch_size, in_channels, height, width = x.data.shape
         k = self.kernel_size
-        out_height = height - k + 1
-        out_width = width - k + 1
+        sy, sx = self.stride_length
+        if self.use_padding:
+            pad_y = ((height - 1) * sy + k - height) // 2
+            pad_x = ((width - 1) * sx + k - width) // 2
+            x_padded = np.pad(
+                x.data,
+                ((0, 0), (0, 0), (pad_y, pad_y), (pad_x, pad_x)),
+                mode="constant",
+            )
+            height_p, width_p = x_padded.shape[2], x_padded.shape[3]
+        else:
+            x_padded = x.data
+            height_p, width_p = height, width
+        out_height = (height_p - k) // sy + 1
+        out_width = (width_p - k) // sx + 1
         out = np.zeros((batch_size, self.out_channels, out_height, out_width))
         for b in range(batch_size):
             for oc in range(self.out_channels):
-                conv_sum = np.zeros((height, width))
+                conv_sum = np.zeros((height_p, width_p))
                 for ic in range(in_channels):
-                    # FFT-based convolution (thx 3b1b :)
-                    img = x.data[b, ic]
+                    img = x_padded[b, ic]
                     kernel = self.weight[oc, ic]
-                    # Pad kernel to image size
                     kernel_padded = np.zeros_like(img)
                     kernel_padded[:k, :k] = kernel
                     img_fft = np.fft.fft2(img)
@@ -213,9 +233,15 @@ class Conv2D(Layer):
                     conv_fft = img_fft * kernel_fft
                     conv = np.fft.ifft2(conv_fft).real
                     conv_sum += conv
-                # Crop to valid region
-                out[b, oc] = conv_sum[:out_height, :out_width] + self.bias[oc]
-        self.x = x.data
+                # Strided crop to valid region
+                for i in range(out_height):
+                    for j in range(out_width):
+                        out[b, oc, i, j] = (
+                            conv_sum[i * sy : i * sy + k, j * sx : j * sx + k].sum()
+                            / (k * k)
+                            + self.bias[oc]
+                        )
+        self.x = x_padded
         return Tensor(out, requires_grad=x.requires_grad)
 
     def backward(self, grad, lr):
@@ -246,24 +272,24 @@ class Conv2D(Layer):
 
 
 class MaxPool2D(Layer):
-    def __init__(self, kernel_size=2, stride=2):
+    def __init__(self, kernel_size=2, stride_length=(2, 2)):
         self.kernel_size = kernel_size
-        self.stride = stride
+        self.stride_length = stride_length
 
     def forward(self, x: Tensor):
         # x shape: (batch, channels, height, width)
         batch_size, channels, height, width = x.data.shape
         k = self.kernel_size
-        s = self.stride
-        out_height = (height - k) // s + 1
-        out_width = (width - k) // s + 1
+        sy, sx = self.stride_length
+        out_height = (height - k) // sy + 1
+        out_width = (width - k) // sx + 1
         # Use stride tricks for efficient windowing
         shape = (batch_size, channels, out_height, out_width, k, k)
         strides = (
             x.data.strides[0],
             x.data.strides[1],
-            x.data.strides[2] * s,
-            x.data.strides[3] * s,
+            x.data.strides[2] * sy,
+            x.data.strides[3] * sx,
             x.data.strides[2],
             x.data.strides[3],
         )
@@ -384,8 +410,14 @@ if __name__ == "__main__":
     print("\nTesting Conv2D and MaxPool2D layers:")
     dummy_input = np.random.rand(2, 1, 6, 6)
     tensor_input = Tensor(dummy_input)
-    conv = Conv2D(in_channels=1, out_channels=2, kernel_size=3)
-    pool = MaxPool2D(kernel_size=2, stride=2)
+    conv = Conv2D(
+        in_channels=1,
+        out_channels=2,
+        kernel_size=3,
+        stride_length=(2, 2),
+        use_padding=True,
+    )
+    pool = MaxPool2D(kernel_size=2, stride_length=(2, 2))
     conv_out = conv.forward(tensor_input)
     print("Conv2D output shape:", conv_out.data.shape)
     pool_out = pool.forward(conv_out)
