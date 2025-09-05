@@ -1,6 +1,5 @@
 import numpy as np
 from sklearn.decomposition import PCA as skPCA
-from sklearn.cluster import DBSCAN as skdb
 from sklearn.preprocessing import PowerTransformer
 from sklearn import datasets
 

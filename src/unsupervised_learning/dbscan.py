@@ -12,8 +12,14 @@ class DBSCAN:
         self.metric = metric
         self.p = p
 
+    def test(self):
+        print("ok")
+
     def fit(self, X):
-        self.X = np.asarray(X)
+        # Ensure input is a numeric numpy array
+        if hasattr(X, "values"):
+            X = X.values
+        self.X = np.asarray(X, dtype=float)
         n_samples = self.X.shape[0]
         self.labels = -1 * np.ones(n_samples)
         visited = np.zeros(n_samples, dtype=bool)
@@ -22,22 +28,24 @@ class DBSCAN:
             if visited[i]:
                 continue
             visited[i] = True
-            neighbors = self._get_neighbors(X, i, self.p)
+            neighbors = self._get_neighbors(i)
             if neighbors.shape[0] >= self.min_samples:
-                self._create_cluster(self.X, i, neighbors, id_cluster, visited)
+                self._create_cluster(i, neighbors, id_cluster, visited)
                 id_cluster += 1
         return self
 
-    def _get_neighbors(self, X, i, p):
+    def _get_neighbors(self, i):
         if self.metric == "euclidean":
-            distances = np.linalg.norm(X - X[i], axis=1)
+            distances = np.linalg.norm(self.X - self.X[i], axis=1)
         elif self.metric == "minkowski":
-            distances = np.sum(np.abs(X - X[i]) ** p, axis=1) ** (1 / p)
+            distances = np.sum(np.abs(self.X - self.X[i]) ** self.p, axis=1) ** (
+                1 / self.p
+            )
         elif self.metric == "manhattan":
-            distances = np.sum(np.abs(X - X[i]), axis=1)
+            distances = np.sum(np.abs(self.X - self.X[i]), axis=1)
         return np.where(distances <= self.epsilon)[0]
 
-    def _create_cluster(self, X, i, neighbors, id_cluster, visited):
+    def _create_cluster(self, i, neighbors, id_cluster, visited):
         queue = deque(neighbors)
         self.labels[i] = id_cluster
 
@@ -45,7 +53,7 @@ class DBSCAN:
             neighbor_idx = queue.popleft()
             if not visited[neighbor_idx]:
                 visited[neighbor_idx] = True
-                new_neighbors = self._get_neighbors(X, neighbor_idx, self.p)
+                new_neighbors = self._get_neighbors(neighbor_idx)
                 if new_neighbors.shape[0] >= self.min_samples:
                     queue.extend(new_neighbors)
             if self.labels[neighbor_idx] == -1:
