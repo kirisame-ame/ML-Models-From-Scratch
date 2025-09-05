@@ -18,6 +18,9 @@
 ### Bonus yang Diimplementasikan:
 
 - Kernel Radial Basis Function (RBF) pada SVM
+- Voting Classifier (soft dan hard) untuk _bonus 1 Ensemble_
+- Metode inisialisasi xavier_uniform, zeroes,ones untuk linear layer ANN
+- CNN dan Maxpooling
 
 ---
 
@@ -35,5 +38,5 @@
 
 ## Reinforcement Learning (Bagian 4)
 
-- ✔️ **Q-LEARNING**
-- ✔️ **SARSA**
+- ✅ **Q-LEARNING**
+- ✅ **SARSA**

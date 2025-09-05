@@ -3,9 +3,6 @@ from sklearn.preprocessing import PowerTransformer
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn import datasets
-from gaussian_naive_bayes import GaussianNB
-from decision_tree import DecisionTreeClassifier
-from softmax_regression import SoftmaxRegression
 
 
 class VotingClassifier:
@@ -31,6 +28,10 @@ class VotingClassifier:
 
 
 if __name__ == "__main__":
+    from gaussian_naive_bayes import GaussianNB
+    from decision_tree import DecisionTreeClassifier
+    from softmax_regression import SoftmaxRegression
+
     iris = datasets.load_iris(as_frame=True)
     X = iris.data
     y = iris.target
