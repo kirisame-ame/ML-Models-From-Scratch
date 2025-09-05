@@ -7,6 +7,11 @@ from sklearn import datasets
 
 
 class SoftmaxRegression:
+    def predict_proba(self, X):
+        test = np.asarray(X)
+        Z = test @ self.weights + self.bias
+        return self._softmax(Z)
+
     def __init__(
         self, learning_rate=1e-2, penalty="l2", max_iter=1000, mu=0.01, verbose=100
     ):

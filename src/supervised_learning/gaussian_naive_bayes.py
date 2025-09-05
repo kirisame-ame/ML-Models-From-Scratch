@@ -9,6 +9,27 @@ from sklearn import datasets
 
 
 class GaussianNB:
+    def predict_proba(self, X):
+        test = np.asarray(X)
+        n_classes = len(self.stats)
+        proba = np.zeros((test.shape[0], n_classes))
+        class_labels = sorted(self.stats.keys())
+        for i, row in enumerate(test):
+            log_probs = []
+            for key, value in self.stats.items():
+                curr_prob = value[0]
+                for feature in range(1, len(value) - 1):
+                    class_prob = norm.pdf(
+                        row[feature], value[feature][0], value[feature][1]
+                    )
+                    curr_prob += np.log(class_prob)
+                log_probs.append(curr_prob)
+            # Convert log-probs to probabilities
+            probs = np.exp(log_probs - np.max(log_probs))
+            probs /= np.sum(probs)
+            proba[i] = probs
+        return proba
+
     def __init__(self, smoothing=1e-9):
         self.smoothing = smoothing
 

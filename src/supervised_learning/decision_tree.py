@@ -103,6 +103,17 @@ class DecisionNode:
 
 
 class DecisionTreeClassifier:
+    def predict_proba(self, X):
+        test = np.asarray(X)
+        n_classes = len(np.unique(self.y_train))
+        proba = np.zeros((test.shape[0], n_classes))
+        for i, row in enumerate(test):
+            probs = self._classify(row, self.root)
+            # probs: [[class, prob], ...]
+            for c, p in probs:
+                proba[i, int(c)] = p
+        return proba
+
     def __init__(self, max_depth=None):
         self.max_depth = max_depth
 
