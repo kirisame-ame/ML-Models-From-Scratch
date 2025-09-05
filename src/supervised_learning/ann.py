@@ -180,6 +180,121 @@ class Linear(Layer):
         return dx
 
 
+class Conv2D(Layer):
+    def __init__(self, in_channels, out_channels, kernel_size):
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        # weight shape: (out_channels, in_channels, kernel_size, kernel_size)
+        self.weight = (
+            np.random.randn(out_channels, in_channels, kernel_size, kernel_size) * 0.1
+        )
+        self.bias = np.zeros(out_channels)
+
+    def forward(self, x: Tensor):
+        # x shape: (batch, in_channels, height, width)
+        batch_size, in_channels, height, width = x.data.shape
+        k = self.kernel_size
+        out_height = height - k + 1
+        out_width = width - k + 1
+        out = np.zeros((batch_size, self.out_channels, out_height, out_width))
+        for b in range(batch_size):
+            for oc in range(self.out_channels):
+                conv_sum = np.zeros((height, width))
+                for ic in range(in_channels):
+                    # FFT-based convolution (thx 3b1b :)
+                    img = x.data[b, ic]
+                    kernel = self.weight[oc, ic]
+                    # Pad kernel to image size
+                    kernel_padded = np.zeros_like(img)
+                    kernel_padded[:k, :k] = kernel
+                    img_fft = np.fft.fft2(img)
+                    kernel_fft = np.fft.fft2(kernel_padded)
+                    conv_fft = img_fft * kernel_fft
+                    conv = np.fft.ifft2(conv_fft).real
+                    conv_sum += conv
+                # Crop to valid region
+                out[b, oc] = conv_sum[:out_height, :out_width] + self.bias[oc]
+        self.x = x.data
+        return Tensor(out, requires_grad=x.requires_grad)
+
+    def backward(self, grad, lr):
+        # grad shape: (batch, out_channels, out_height, out_width)
+        batch_size, in_channels, height, width = self.x.shape
+        k = self.kernel_size
+        out_height = height - k + 1
+        out_width = width - k + 1
+        # Gradients
+        grad_weight = np.zeros_like(self.weight)
+        grad_bias = np.zeros_like(self.bias)
+        grad_input = np.zeros_like(self.x)
+        for b in range(batch_size):
+            for oc in range(self.out_channels):
+                grad_bias[oc] += np.sum(grad[b, oc])
+                for ic in range(in_channels):
+                    for i in range(out_height):
+                        for j in range(out_width):
+                            region = self.x[b, ic, i : i + k, j : j + k]
+                            grad_weight[oc, ic] += grad[b, oc, i, j] * region
+                            grad_input[b, ic, i : i + k, j : j + k] += (
+                                grad[b, oc, i, j] * self.weight[oc, ic]
+                            )
+        # Update weights and bias
+        self.weight -= lr * grad_weight
+        self.bias -= lr * grad_bias
+        return grad_input
+
+
+class MaxPool2D(Layer):
+    def __init__(self, kernel_size=2, stride=2):
+        self.kernel_size = kernel_size
+        self.stride = stride
+
+    def forward(self, x: Tensor):
+        # x shape: (batch, channels, height, width)
+        batch_size, channels, height, width = x.data.shape
+        k = self.kernel_size
+        s = self.stride
+        out_height = (height - k) // s + 1
+        out_width = (width - k) // s + 1
+        # Use stride tricks for efficient windowing
+        shape = (batch_size, channels, out_height, out_width, k, k)
+        strides = (
+            x.data.strides[0],
+            x.data.strides[1],
+            x.data.strides[2] * s,
+            x.data.strides[3] * s,
+            x.data.strides[2],
+            x.data.strides[3],
+        )
+        windows = np.lib.stride_tricks.as_strided(
+            x.data, shape=shape, strides=strides, writeable=False
+        )
+        out = np.max(windows, axis=(4, 5))
+        self.x = x.data
+        return Tensor(out, requires_grad=x.requires_grad)
+
+    def backward(self, grad, lr):
+        # grad shape: (batch, channels, out_height, out_width)
+        batch_size, channels, height, width = self.x.shape
+        k = self.kernel_size
+        s = self.stride
+        out_height = (height - k) // s + 1
+        out_width = (width - k) // s + 1
+        grad_input = np.zeros_like(self.x)
+        for b in range(batch_size):
+            for c in range(channels):
+                for i in range(out_height):
+                    for j in range(out_width):
+                        window = self.x[b, c, i * s : i * s + k, j * s : j * s + k]
+                        max_val = np.max(window)
+                        mask = window == max_val
+                        grad_input[b, c, i * s : i * s + k, j * s : j * s + k] += (
+                            grad[b, c, i, j] * mask
+                        )
+        return grad_input
+
+
 class Model:
     """
     A simple feedforward neural network model for supervised learning.
@@ -265,3 +380,13 @@ if __name__ == "__main__":
     print(np.ravel(y_test))
     print("preds:")
     print(preds)
+
+    print("\nTesting Conv2D and MaxPool2D layers:")
+    dummy_input = np.random.rand(2, 1, 6, 6)
+    tensor_input = Tensor(dummy_input)
+    conv = Conv2D(in_channels=1, out_channels=2, kernel_size=3)
+    pool = MaxPool2D(kernel_size=2, stride=2)
+    conv_out = conv.forward(tensor_input)
+    print("Conv2D output shape:", conv_out.data.shape)
+    pool_out = pool.forward(conv_out)
+    print("MaxPool2D output shape:", pool_out.data.shape)
