@@ -53,6 +53,10 @@ class SoftmaxRegression:
         dw = (1 / self.X_train.shape[0]) * np.dot(self.X_train.T, error)
         if self.penalty == "l2":
             dw += self.mu * self.weights
+        elif self.penalty == "l1":
+            dw += self.mu * np.sign(self.weights)
+        elif self.penalty == "none":
+            pass  # no regularization
         db = (1 / self.X_train.shape[0]) * np.sum(error, axis=0)
         return dw, db
 
