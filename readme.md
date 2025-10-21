@@ -1,9 +1,5 @@
 # Seleksi Lab AI 2025
 
-## William Andrian Dharma T
-
-## NIM: 13523006
-
 ---
 
 ## Supervised Learning (Bagian 2)
@@ -15,12 +11,12 @@
 - ✅ **Support Vector Machine (SVM)**
 - ✅ **Artificial Neural Networks (ANN)**
 
-### Bonus yang Diimplementasikan:
+### Bonus:
 
-- Kernel Radial Basis Function (RBF) pada SVM
-- Voting Classifier (soft dan hard) untuk _bonus 1 Ensemble_
-- Metode inisialisasi xavier_uniform, zeroes,ones untuk linear layer ANN
-- CNN dan Maxpooling
+- Kernel Radial Basis Function (RBF) on SVM
+- Voting Classifier (soft and hard) for _bonus 1 Ensemble_
+- xavier_uniform, zeroes,ones ANN weight initializations
+- CNN and Maxpooling Layers
 
 ---
 
@@ -30,9 +26,9 @@
 - ✅ **Density-Based Spatial Clustering of Applications with Noise (DBSCAN)**
 - ✅ **Principal Component Analysis (PCA)**
 
-### Bonus yang Diimplementasikan:
+### Bonus:
 
-- Inisialisasi K-Means++
+- K-Means++
 
 ---
 
