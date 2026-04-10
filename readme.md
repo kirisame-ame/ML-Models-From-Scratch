@@ -1,4 +1,4 @@
-# Seleksi Lab AI 2025
+# Artificial Intelligence Lab Selection 2025
 
 ---
 
@@ -35,5 +35,5 @@
 ## Reinforcement Learning (Bagian 4)
 https://github.com/kirisame-ame/QLearning-and-SARSA
 
-- ✅ **Q-LEARNING**
-- ✅ **SARSA**
+-  **Q-LEARNING**
+-  **SARSA**
